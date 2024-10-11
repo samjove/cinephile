@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/samjove/cinephile/metadata/internal/repository"
-	model "github.com/samjove/cinephile/metadata/pkg"
+	"github.com/samjove/cinephile/metadata/pkg/model"
 )
 
 // ErrNotFound is returned when a requested record is not // found.
