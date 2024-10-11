@@ -4,24 +4,33 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"math/rand"
 	"net/http"
 
 	"github.com/samjove/cinephile/film/internal/gateway"
 	"github.com/samjove/cinephile/metadata/pkg/model"
+	"github.com/samjove/cinephile/pkg/discovery"
 )
 
 // Gateway defines a film metadata HTTP gateway.
 type Gateway struct {
-    addr string
+    registry discovery.Registry
 }
 // New creates a new HTTP gateway for a film metadata service.
-func New(addr string) *Gateway {
-    return &Gateway{addr}
+func New(registry discovery.Registry) *Gateway {
+    return &Gateway{registry}
 }
 
 // Get gets film metadata by an id.
 func (g *Gateway) Get(ctx context.Context, id string) (*model.Metadata, error) {
-    req, err := http.NewRequest(http.MethodGet, g.addr+"/metadata", nil)
+    addrs, err := g.registry.ServiceAddresses(ctx, "metadata")
+	if err != nil {
+		return nil, err
+	}
+	url := "http://" + addrs[rand.Intn(len(addrs))] + "/metadata"
+	log.Printf("Calling metadata service. Request: GET " + url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
     if err != nil {
         return nil, err
 	}
