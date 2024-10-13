@@ -5,13 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/samjove/cinephile/film/internal/controller/film"
 	metadatagateway "github.com/samjove/cinephile/film/internal/gateway/metadata/http"
 	ratinggateway "github.com/samjove/cinephile/film/internal/gateway/rating/http"
-	httphandler "github.com/samjove/cinephile/film/internal/handler/http"
+	grpchandler "github.com/samjove/cinephile/film/internal/handler/grpc"
+	"github.com/samjove/cinephile/gen"
 	"github.com/samjove/cinephile/pkg/discovery"
 	"github.com/samjove/cinephile/pkg/discovery/consul"
 )
@@ -44,9 +48,15 @@ func main() {
 	metadataGateway := metadatagateway.New(registry)
 	ratingGateway := ratinggateway.New(registry)
 	ctrl := film.New(ratingGateway, metadataGateway)
-	h := httphandler.New(ctrl)
-	http.Handle("/movie", http.HandlerFunc(h.GetFilmDetails))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	h := grpchandler.New(ctrl)
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	srv := grpc.NewServer()
+	reflection.Register(srv)
+	gen.RegisterFilmServiceServer(srv, h)
+	if err := srv.Serve(lis); err != nil {
 		panic(err)
 	}
 }
