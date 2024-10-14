@@ -15,7 +15,7 @@ type instanceID string
 // Registry defines an in-memory service registry.
 type Registry struct {
 	sync.RWMutex
-	serviceAddrs map[serviceName]map[instanceID]*serviceInstance
+	serviceAddrs map[string]map[string]*serviceInstance
 }
 
 type serviceInstance struct {
@@ -25,22 +25,22 @@ type serviceInstance struct {
 
 // NewRegistry creates a new in-memory service registry instance.
 func NewRegistry() *Registry {
-	return &Registry{serviceAddrs: map[serviceName]map[instanceID]*serviceInstance{}}
+	return &Registry{serviceAddrs: map[string]map[string]*serviceInstance{}}
 }
 
 // Register creates a service record in the registry.
-func (r *Registry) Register(ctx context.Context, instance instanceID, serviceName serviceName, hostPort string) error {
+func (r *Registry) Register(ctx context.Context, instance string, serviceName string, hostPort string) error {
     r.Lock()
     defer r.Unlock()
     if _, ok := r.serviceAddrs[serviceName]; !ok {
-        r.serviceAddrs[serviceName] = map[instanceID]*serviceInstance{}
+        r.serviceAddrs[serviceName] = map[string]*serviceInstance{}
     }
     r.serviceAddrs[serviceName][instance] = &serviceInstance{hostPort: hostPort, lastActive: time.Now()}
     return nil
 }
 
 // Deregister removes a service record from the registry.
-func (r *Registry) Deregister(ctx context.Context, instance instanceID, service serviceName) error {
+func (r *Registry) Deregister(ctx context.Context, instance string, service string) error {
     r.Lock()
     defer r.Unlock()
     if _, ok := r.serviceAddrs[service]; !ok {
@@ -51,7 +51,7 @@ func (r *Registry) Deregister(ctx context.Context, instance instanceID, service 
 }
 
 // ReportHealthyState is a push mechanism for reporting healthy state to the registry.
-func (r *Registry) ReportHealthyState(instance instanceID, service serviceName) error {
+func (r *Registry) ReportHealthyState(instance string, service string) error {
     r.Lock()
     defer r.Unlock()
     if _, ok := r.serviceAddrs[service]; !ok {
@@ -66,7 +66,7 @@ func (r *Registry) ReportHealthyState(instance instanceID, service serviceName) 
 }
 
 // ServiceAddresses returns the list of addresses of active instances of the given service.
-func (r *Registry) ServiceAddresses(ctx context.Context, service serviceName) ([]string, error) {
+func (r *Registry) ServiceAddresses(ctx context.Context, service string) ([]string, error) {
     r.RLock()
     defer r.RUnlock()
     if len(r.serviceAddrs[service]) == 0 {

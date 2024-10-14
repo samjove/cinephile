@@ -2,31 +2,38 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"gopkg.in/yaml.v3"
 
 	"github.com/samjove/cinephile/gen"
 	"github.com/samjove/cinephile/metadata/internal/controller/metadata"
 	grpchandler "github.com/samjove/cinephile/metadata/internal/handler/grpc"
-	"github.com/samjove/cinephile/metadata/internal/repository/memory"
+	metadatamemory "github.com/samjove/cinephile/metadata/internal/repository/memory"
 	"github.com/samjove/cinephile/pkg/discovery"
-	"github.com/samjove/cinephile/pkg/discovery/consul"
+	"github.com/samjove/cinephile/pkg/discovery/memory"
 )
 
 const serviceName = "metadata"
 
 func main() {
-	var port int
-	flag.IntVar(&port, "port", 8081, "API handler port")
-	flag.Parse()
+	f, err := os.Open("base.yaml")
+	if err != nil {
+		panic(err)
+	}
+	var cfg config
+	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+		panic(err)
+	}
+	port := cfg.API.Port
 	log.Printf("Starting the metadata service on port %d", port)
-	registry, err := consul.NewRegistry("localhost:8500")
+	registry := memory.NewRegistry()
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +51,7 @@ func main() {
 		}
 	}()
 	defer registry.Deregister(ctx, instanceID, serviceName)
-	repo := memory.New()
+	repo := metadatamemory.New()
 	ctrl := metadata.New(repo)
 	
 	h := grpchandler.New(ctrl)

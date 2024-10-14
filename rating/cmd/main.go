@@ -2,31 +2,38 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"gopkg.in/yaml.v3"
 
 	"github.com/samjove/cinephile/gen"
 	"github.com/samjove/cinephile/pkg/discovery"
-	"github.com/samjove/cinephile/pkg/discovery/consul"
+	"github.com/samjove/cinephile/pkg/discovery/memory"
 	"github.com/samjove/cinephile/rating/internal/controller/rating"
 	grpchandler "github.com/samjove/cinephile/rating/internal/handler/grpc"
-	"github.com/samjove/cinephile/rating/internal/repository/memory"
+	"github.com/samjove/cinephile/rating/internal/repository/mysql"
 )
 
 const serviceName = "rating"
 
 func main() {
-	var port int
-	flag.IntVar(&port, "port", 8082, "API handler port")
-	flag.Parse()
+	f, err := os.Open("base.yaml")
+	if err != nil {
+		panic(err)
+	}
+	var cfg config
+	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+		panic(err)
+	}
+	port := cfg.API.Port
 	log.Printf("Starting the rating service on port %d", port)
-	registry, err := consul.NewRegistry("localhost:8500")
+	registry := memory.NewRegistry()
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +51,10 @@ func main() {
 		}
 	}()
 	defer registry.Deregister(ctx, instanceID, serviceName)
-	repo := memory.New()
+	repo, err := mysql.New()
+	if err != nil {
+		panic(err)
+	}
 	ctrl := rating.New(repo, nil)
 	h := grpchandler.New(ctrl)
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", port))
